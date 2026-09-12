@@ -72,6 +72,11 @@
   .q-btn { flex:1; padding:8px 4px; border:1px solid var(--blush); border-radius:10px; font-size:12px; color:var(--muted); background:none; cursor:pointer; transition:all .2s; font-family:'DM Sans',sans-serif; white-space:nowrap; }
   .q-btn.active { background:var(--deep); color:var(--cream); border-color:var(--deep); }
   .notice { text-align:center; font-size:11px; color:var(--muted); margin-top:24px; line-height:1.7; opacity:.7; }
+  .change-card { background:linear-gradient(135deg,#fff8f2,#fdf0e8); border:1px solid var(--blush); border-radius:16px; padding:16px 18px; margin-bottom:16px; display:flex; align-items:center; gap:12px; }
+  .change-card .cc-icon { font-size:26px; flex-shrink:0; }
+  .change-card .cc-text { font-size:13px; color:var(--deep); line-height:1.6; font-weight:500; }
+  .next-action { background:var(--light); border-radius:14px; padding:14px 16px; margin-bottom:16px; font-size:12.5px; color:var(--deep); line-height:1.7; text-align:center; }
+  .share-btn { flex:1; display:flex; align-items:center; justify-content:center; gap:6px; background:none; border:1px solid var(--blush); border-radius:10px; padding:10px; font-size:12px; color:var(--muted); cursor:pointer; font-family:'DM Sans',sans-serif; }
 
   /* ===== ゴージャス・ヒーローフレーム ===== */
   .hero-frame { background:#0E0E16; border:1px solid #B892D6; border-radius:26px; padding:6px; margin-bottom:22px; position:relative; }
@@ -254,6 +259,7 @@
     <div id="previewWrap">
       <img id="previewImg" alt="プレビュー" />
       <div class="preview-overlay"></div>
+      <div style="position:absolute;top:12px;left:12px;background:rgba(30,18,14,.6);color:#fff;font-size:11px;padding:5px 12px;border-radius:99px;">この写真でよろしいですか？</div>
       <button class="preview-change" id="changeBtn">変更</button>
     </div>
     <div id="questionnaireCard" style="display:none;background:white;border:1px solid var(--blush);border-radius:20px;padding:24px;margin-top:16px;">
@@ -295,6 +301,7 @@
   <div id="resultWrap">
     <div style="display:flex;gap:10px;margin-bottom:16px;">
       <button onclick="reset()" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:none;border:1px solid var(--blush);border-radius:10px;padding:10px;font-size:12px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;">← 再診断</button>
+      <button onclick="shareResult()" class="share-btn">📤 シェア</button>
       <button onclick="showKarte(true)" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:none;border:1px solid var(--blush);border-radius:10px;padding:10px;font-size:12px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;">📋 カルテ</button>
     </div>
     <div class="age-hero">
@@ -307,6 +314,10 @@
       <div class="age-diff" id="ageDiff"></div>
       <div class="age-tagline" id="ageSub"></div>
     </div>
+    <div class="change-card" id="changeCard" style="display:none;">
+      <div class="cc-icon" id="changeIcon"></div>
+      <div class="cc-text" id="changeText"></div>
+    </div>
     <div class="scores-grid">
       <div class="score-card"><div class="sc-label">水分量</div><div class="sc-row"><span class="sc-val" id="s1">--</span><span class="sc-unit">点</span><span class="sc-max">/ 100</span></div><div class="sc-bar-bg"><div class="sc-bar-fill" id="b1"></div></div></div>
       <div class="score-card"><div class="sc-label">毛穴ケア</div><div class="sc-row"><span class="sc-val" id="s2">--</span><span class="sc-unit">点</span><span class="sc-max">/ 100</span></div><div class="sc-bar-bg"><div class="sc-bar-fill" id="b2"></div></div></div>
@@ -317,6 +328,7 @@
       <div class="cc-label">✦ 診断コメント</div>
       <p id="commentText"></p>
     </div>
+    <div class="next-action">🌙 明日もう一度撮ると、<strong style="color:var(--rose);">変化グラフ</strong>が見られるようになります</div>
 
     <!-- タブナビ（全解放）-->
     <div class="nav-tabs" id="featureTabs">
@@ -577,6 +589,36 @@ function analyze(){
   img.src=URL.createObjectURL(selectedFile);
 }
 
+function computeChangeMessage(r){
+  const records=JSON.parse(localStorage.getItem('skinageKarte')||'[]');
+  if(records.length===0){
+    return {icon:'🌱',text:'はじめての記録です。明日もう一度診断すると、変化が見えてきます。'};
+  }
+  const prev=records[0];
+  const ageImprove=prev.skinAge-r.skinAge;
+  if(ageImprove>0){
+    return {icon:'✨',text:`前回より肌年齢が${ageImprove}歳若返りました！`};
+  }
+  const metrics=[['水分量',r.moisture-prev.moisture],['毛穴ケア',r.pores-prev.pores],['シミ・くすみ',r.spotsScore-prev.spots],['ハリ・弾力',r.firmness-prev.firmness]];
+  const best=metrics.reduce((a,b)=>b[1]>a[1]?b:a);
+  if(best[1]>0){
+    return {icon:'📈',text:`${best[0]}のスコアが前回より+${best[1]}点アップしました！`};
+  }
+  const streak=records.length+1;
+  return {icon:'📅',text:`${streak}回目の記録です。継続すること自体が肌への一番のケアです。`};
+}
+function shareResult(){
+  if(!lastResult)return;
+  const r=lastResult;
+  const text=`肌年齢診断してみたら${r.skinAge}歳でした🌸（実年齢${r.realAge}歳）\n#SkinAge #肌年齢診断`;
+  if(navigator.share){
+    navigator.share({text}).catch(()=>{});
+  } else if(navigator.clipboard){
+    navigator.clipboard.writeText(text).then(()=>alert('結果をコピーしました！SNSなどに貼り付けてシェアできます。')).catch(()=>alert(text));
+  } else {
+    alert(text);
+  }
+}
 let lastResult=null,skinAgeChartInstance=null;
 function showResult(r){
   lastResult=r;
@@ -586,6 +628,10 @@ function showResult(r){
   document.getElementById('ageDiff').textContent = r.diff<0 ? `実年齢より${-r.diff}歳若い` : r.diff===0 ? '実年齢と同じ' : `実年齢より${r.diff}歳上`;
   document.getElementById('ageSub').textContent=r.tagline;
   document.getElementById('commentText').textContent=r.comment;
+  const change=computeChangeMessage(r);
+  document.getElementById('changeIcon').textContent=change.icon;
+  document.getElementById('changeText').textContent=change.text;
+  document.getElementById('changeCard').style.display='flex';
   [['s1','b1',r.moisture],['s2','b2',r.pores],['s3','b3',r.spotsScore],['s4','b4',r.firmness]].forEach(([s,b,v])=>{
     document.getElementById(s).textContent=v;
     setTimeout(()=>{document.getElementById(b).style.width=v+'%';},200);
