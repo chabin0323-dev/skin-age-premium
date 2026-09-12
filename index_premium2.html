@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SkinAge — 肌年齢診断</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root { --cream:#FAF7F2; --blush:#E8C5B0; --rose:#C9856A; --deep:#3A2A24; --muted:#9A8880; --light:#F3EDE5; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--deep); min-height:100vh; }
+  body::before { content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+    background:radial-gradient(ellipse at 20% 20%,rgba(232,197,176,.25) 0%,transparent 55%),
+               radial-gradient(ellipse at 80% 80%,rgba(201,133,106,.12) 0%,transparent 55%); }
+  .container { position:relative; z-index:1; max-width:480px; margin:0 auto; padding:0 24px 80px; }
+  .header { padding:48px 0 28px; text-align:center; }
+  .logo { font-size:11px; letter-spacing:.35em; color:var(--muted); margin-bottom:16px; }
+  .header h1 { font-family:'Cormorant Garamond',serif; font-size:42px; font-weight:300; line-height:1.1; margin-bottom:12px; }
+  .header h1 em { font-style:italic; color:var(--rose); }
+  .header p { font-size:13px; color:var(--muted); line-height:1.7; }
+  .dob-card { background:white; border:1px solid var(--blush); border-radius:20px; padding:24px; margin-bottom:20px; }
+  .dob-card label { display:block; font-size:12px; letter-spacing:.2em; color:var(--muted); text-transform:uppercase; margin-bottom:12px; }
+  .dob-inputs { display:flex; gap:8px; align-items:center; }
+  .dob-inputs select { flex:1; padding:12px 8px; border:1px solid var(--blush); border-radius:10px; font-family:'DM Sans',sans-serif; font-size:14px; color:var(--deep); background:var(--cream); appearance:none; text-align:center; cursor:pointer; }
+  .dob-inputs select:focus { outline:none; border-color:var(--rose); }
+  .dob-sep { font-size:18px; color:var(--blush); font-family:'Cormorant Garamond',serif; }
+  .upload-area { border:1px solid var(--blush); border-radius:20px; background:white; overflow:hidden; cursor:pointer; transition:border-color .3s,box-shadow .3s; min-height:200px; display:flex; align-items:center; justify-content:center; position:relative; }
+  .upload-area:hover { border-color:var(--rose); box-shadow:0 0 0 4px rgba(201,133,106,.08); }
+  .upload-area input { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+  .upload-content { text-align:center; padding:36px 24px; pointer-events:none; }
+  .upload-content strong { display:block; font-size:15px; font-weight:500; margin-bottom:6px; }
+  .upload-content small { font-size:12px; color:var(--muted); }
+  #previewWrap { display:none; position:relative; border-radius:20px; overflow:hidden; border:1px solid var(--blush); }
+  #previewImg { width:100%; max-height:280px; object-fit:cover; display:block; transform:scaleX(-1); }
+  .preview-overlay { position:absolute; inset:0; background:linear-gradient(to bottom,transparent 50%,rgba(58,42,36,.5) 100%); }
+  .preview-change { position:absolute; bottom:16px; right:16px; background:rgba(255,255,255,.9); border:none; border-radius:99px; padding:8px 16px; font-family:'DM Sans',sans-serif; font-size:12px; color:var(--deep); cursor:pointer; }
+  .btn-primary { width:100%; padding:18px; margin-top:20px; background:var(--deep); color:var(--cream); border:none; border-radius:14px; font-family:'DM Sans',sans-serif; font-size:15px; letter-spacing:.08em; cursor:pointer; transition:opacity .2s; text-transform:uppercase; }
+  .btn-primary:disabled { opacity:.35; cursor:not-allowed; }
+  .btn-primary:hover:not(:disabled) { opacity:.85; }
+  #loadingWrap { display:none; text-align:center; padding:48px 0; }
+  .loading-ring { width:48px; height:48px; border:2px solid var(--blush); border-top-color:var(--rose); border-radius:50%; animation:spin 1s linear infinite; margin:0 auto 20px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  #loadingWrap p { font-family:'Cormorant Garamond',serif; font-size:18px; font-style:italic; color:var(--muted); }
+  #resultWrap { display:none; animation:fadeUp .6s ease both; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+  .age-hero { background:var(--deep); border-radius:20px; padding:32px; text-align:center; margin-bottom:16px; position:relative; overflow:hidden; }
+  .age-hero::before { content:''; position:absolute; inset:0; background:radial-gradient(ellipse at 50% 0%,rgba(232,197,176,.15) 0%,transparent 65%); }
+  .age-hero-label { font-size:11px; letter-spacing:.3em; color:var(--blush); text-transform:uppercase; margin-bottom:10px; }
+  .age-compare { display:flex; align-items:center; justify-content:center; gap:16px; margin-bottom:8px; }
+  .age-block { text-align:center; }
+  .age-block .num { font-family:'Cormorant Garamond',serif; font-size:72px; font-weight:300; color:var(--cream); line-height:1; }
+  .age-block .lbl { font-size:11px; letter-spacing:.15em; color:var(--blush); margin-top:4px; }
+  .age-block.real .num { font-size:44px; opacity:.5; }
+  .age-arrow { font-size:28px; color:var(--rose); margin-top:-8px; }
+  .age-diff { display:inline-block; background:var(--rose); color:white; font-size:12px; padding:4px 12px; border-radius:99px; margin-top:10px; }
+  .age-tagline { margin-top:12px; font-family:'Cormorant Garamond',serif; font-size:15px; font-style:italic; color:rgba(250,247,242,.6); }
+  .scores-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
+  .score-card { background:white; border:1px solid var(--light); border-radius:16px; padding:18px 16px; }
+  .sc-label { font-size:11px; letter-spacing:.15em; color:var(--muted); text-transform:uppercase; margin-bottom:10px; }
+  .sc-row { display:flex; align-items:baseline; gap:4px; margin-bottom:8px; }
+  .sc-val { font-family:'Cormorant Garamond',serif; font-size:32px; font-weight:300; color:var(--deep); line-height:1; }
+  .sc-unit { font-size:12px; color:var(--muted); }
+  .sc-max { font-size:11px; color:var(--muted); }
+  .sc-bar-bg { height:3px; background:var(--light); border-radius:99px; }
+  .sc-bar-fill { height:3px; border-radius:99px; background:linear-gradient(to right,var(--blush),var(--rose)); width:0; transition:width 1.2s cubic-bezier(.4,0,.2,1); }
+  .comment-card { background:white; border:1px solid var(--light); border-radius:20px; padding:24px; margin-bottom:16px; }
+  .cc-label { font-size:11px; letter-spacing:.25em; text-transform:uppercase; color:var(--rose); margin-bottom:14px; }
+  .comment-card p { font-size:14px; line-height:1.85; color:var(--deep); }
+  .btn-retry { width:100%; padding:14px; background:transparent; border:1px solid var(--blush); border-radius:12px; font-family:'DM Sans',sans-serif; font-size:13px; color:var(--muted); cursor:pointer; margin-top:12px; }
+  .btn-retry:hover { border-color:var(--rose); color:var(--rose); }
+  .q-btn { flex:1; padding:8px 4px; border:1px solid var(--blush); border-radius:10px; font-size:12px; color:var(--muted); background:none; cursor:pointer; transition:all .2s; font-family:'DM Sans',sans-serif; white-space:nowrap; }
+  .q-btn.active { background:var(--deep); color:var(--cream); border-color:var(--deep); }
+  .notice { text-align:center; font-size:11px; color:var(--muted); margin-top:24px; line-height:1.7; opacity:.7; }
+
+  /* ===== ゴージャス・ヒーローフレーム ===== */
+  .hero-frame { background:#0E0E16; border:1px solid #B892D6; border-radius:26px; padding:6px; margin-bottom:22px; position:relative; }
+  .hero-frame-inner { border:1px solid #6B5390; border-radius:21px; overflow:hidden; position:relative; padding-bottom:24px; }
+  .hero-corner { position:absolute; font-size:12px; color:#D9BEEF; z-index:2; line-height:1; }
+  .hero-corner.tl { top:10px; left:10px; } .hero-corner.tr { top:10px; right:10px; }
+  .hero-corner.bl { bottom:10px; left:10px; } .hero-corner.br { bottom:10px; right:10px; }
+  .hero-frame .header { background:radial-gradient(circle at 50% 22%,#4A2318 0%,#1A0F0C 78%); padding:36px 24px 28px; margin:0; border-radius:0; position:relative; overflow:hidden; }
+  .hero-frame .header::before { content:'✧'; position:absolute; top:20px; left:32px; font-size:12px; color:#F0C878; }
+  .hero-frame .header::after { content:'✧'; position:absolute; bottom:16px; right:38px; font-size:15px; color:#F0C878; }
+  .hero-frame .logo { font-family:'Cormorant Garamond',serif; font-style:italic; font-size:27px; letter-spacing:.03em; color:#F0C878 !important; margin-bottom:14px; }
+  .hero-frame .header h1 { color:#F2EEFA !important; }
+  .hero-frame .header h1 em { color:#E9A6C4 !important; }
+  .hero-frame .header p { color:#B3A6D6 !important; }
+  .hero-frame .header span[onclick="showKarte(true)"] { color:#D9BEEF !important; }
+  .hero-frame .dob-card { background:rgba(255,255,255,.05); border:1px solid #4A3E6B; margin:20px 20px 0; }
+  .hero-frame .dob-card label { color:#A79ACB !important; }
+  .hero-frame .dob-inputs select { background:rgba(255,255,255,.06); border:1px solid #4A3E6B; color:#F2EEFA !important; }
+  .hero-frame .dob-sep { color:#B892D6 !important; }
+  .hero-frame #dobSavedText { color:#F2EEFA !important; }
+  .hero-frame .upload-area { background:linear-gradient(150deg,#3A2E5C,#7A4F97,#C97D93); border:1px solid rgba(255,255,255,.3); margin:16px 20px 0; border-radius:16px; }
+  .hero-frame .upload-area:hover { border-color:#fff; box-shadow:0 0 0 4px rgba(255,255,255,.12); }
+  .hero-frame .upload-content strong { color:#fff !important; }
+  .hero-frame .upload-content small { color:rgba(255,255,255,.85) !important; }
+  .hero-frame .upload-content div[style*="background:var(--light)"] { background:rgba(255,255,255,.12) !important; }
+  .hero-frame .upload-content ellipse { stroke:#F0C878 !important; fill:rgba(255,255,255,.12) !important; }
+  .hero-frame .upload-content path { stroke:#F0C878 !important; }
+  .hero-frame #previewWrap { margin:16px 20px 0; border-color:rgba(255,255,255,.3) !important; }
+  .hero-frame #questionnaireCard { background:rgba(255,255,255,.05) !important; border-color:#4A3E6B !important; margin:16px 20px 0 !important; }
+  .hero-frame #questionnaireCard > div:first-child { color:#E9A6C4 !important; }
+  .hero-frame #questionnaireCard div[style*="font-weight:500"] { color:#F2EEFA !important; }
+  .hero-frame .q-btn { border-color:#4A3E6B !important; color:#A79ACB !important; }
+  .hero-frame .q-btn.active { background:#8C5AA8 !important; color:#fff !important; border-color:#8C5AA8 !important; }
+  .hero-frame .btn-primary { background:linear-gradient(90deg,#8C5AA8,#C97D93) !important; border:1px solid rgba(255,255,255,.35) !important; margin:20px 20px 0; width:calc(100% - 40px); }
+  .hero-frame .btn-primary:hover:not(:disabled) { opacity:.9; }
+  /* タブナビ */
+  .nav-tabs { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:16px; }
+  .nav-tab { padding:12px 8px; border:1px solid var(--blush); border-radius:12px; font-size:13px; font-family:'DM Sans',sans-serif; color:var(--deep); background:white; cursor:pointer; transition:all .2s; text-align:center; font-weight:500; }
+  .nav-tab:hover { border-color:var(--rose); color:var(--rose); }
+  .nav-tab.active { background:var(--deep); color:var(--cream); border-color:var(--deep); }
+  .tab-content { display:none; }
+  .tab-content.active { display:block; animation:fadeUp .3s ease; }
+  .feature-section { background:white; border:1px solid var(--light); border-radius:20px; padding:24px; margin-bottom:16px; }
+  .feature-section .fs-label { font-size:11px; letter-spacing:.25em; text-transform:uppercase; color:var(--rose); margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+  .chart-wrap { position:relative; height:200px; margin-top:8px; }
+  .chart-empty { text-align:center; color:var(--muted); font-size:13px; padding:40px 0; }
+  .chart-legend { display:flex; gap:16px; margin-top:12px; justify-content:center; }
+  .chart-legend-item { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); }
+  .chart-legend-dot { width:10px; height:10px; border-radius:50%; }
+  .routine-tabs { display:flex; gap:8px; margin-bottom:16px; }
+  .rtab { flex:1; padding:8px; border:1px solid var(--blush); border-radius:10px; font-size:12px; color:var(--muted); background:none; cursor:pointer; transition:all .2s; text-align:center; font-family:'DM Sans',sans-serif; }
+  .rtab.active { background:var(--deep); color:var(--cream); border-color:var(--deep); }
+  .routine-step { display:flex; align-items:flex-start; gap:12px; padding:12px 0; border-bottom:1px solid var(--light); }
+  .routine-step:last-child { border-bottom:none; }
+  .routine-step-num { width:28px; height:28px; border-radius:50%; background:var(--light); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:500; color:var(--rose); flex-shrink:0; }
+  .routine-step-content { flex:1; }
+  .routine-step-title { font-size:14px; font-weight:500; margin-bottom:3px; }
+  .routine-step-desc { font-size:12px; color:var(--muted); line-height:1.6; }
+  .routine-step-tip { font-size:11px; color:var(--rose); margin-top:4px; }
+  .ingredient-card { border:1px solid var(--light); border-radius:12px; padding:14px; margin-bottom:10px; display:flex; align-items:flex-start; gap:12px; }
+  .ing-icon { width:40px; height:40px; border-radius:10px; background:var(--light); display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
+  .ing-content { flex:1; }
+  .ing-name { font-size:14px; font-weight:500; margin-bottom:3px; }
+  .ing-effect { font-size:12px; color:var(--muted); margin-bottom:5px; line-height:1.5; }
+  .ing-tags { display:flex; flex-wrap:wrap; gap:4px; }
+  .ing-tag { font-size:10px; background:var(--light); color:var(--rose); padding:2px 8px; border-radius:99px; }
+  .mote-hero { background:linear-gradient(135deg,#3A2A24 0%,#5a3d35 100%); border-radius:16px; padding:24px; text-align:center; color:var(--cream); margin-bottom:16px; }
+  .mote-score { font-family:'Cormorant Garamond',serif; font-size:80px; font-weight:300; line-height:1; color:var(--blush); }
+  .mote-grade { display:inline-block; background:var(--rose); color:white; font-size:14px; padding:4px 16px; border-radius:99px; margin-top:10px; }
+  .mote-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .mote-item { background:white; border:1px solid var(--light); border-radius:12px; padding:14px; text-align:center; }
+  .mote-item-icon { font-size:22px; margin-bottom:6px; }
+  .mote-item-label { font-size:11px; color:var(--muted); letter-spacing:.1em; margin-bottom:4px; }
+  .mote-item-val { font-family:'Cormorant Garamond',serif; font-size:24px; color:var(--deep); }
+  .mote-comment { background:var(--light); border-radius:12px; padding:14px; margin-top:12px; font-size:13px; line-height:1.7; }
+  .advice-cat-title { font-size:12px; letter-spacing:.2em; color:var(--rose); text-transform:uppercase; margin-bottom:10px; }
+  .advice-item { background:var(--light); border-radius:12px; padding:14px; margin-bottom:8px; display:flex; gap:10px; }
+  .advice-icon { font-size:18px; flex-shrink:0; }
+  .advice-text { font-size:13px; line-height:1.7; color:var(--deep); }
+  .chat-messages { height:280px; overflow-y:auto; padding:12px 0; display:flex; flex-direction:column; gap:10px; }
+  .chat-msg { max-width:85%; padding:12px 14px; border-radius:16px; font-size:13px; line-height:1.7; }
+  .chat-msg.ai { background:var(--light); color:var(--deep); align-self:flex-start; }
+  .chat-msg.user { background:var(--deep); color:var(--cream); align-self:flex-end; }
+  .chat-input-row { display:flex; gap:8px; margin-top:12px; }
+  .chat-input { flex:1; padding:12px 14px; border:1px solid var(--blush); border-radius:12px; font-family:'DM Sans',sans-serif; font-size:13px; color:var(--deep); background:white; outline:none; }
+  .chat-input:focus { border-color:var(--rose); }
+  .chat-send { padding:12px 18px; background:var(--deep); color:var(--cream); border:none; border-radius:12px; cursor:pointer; font-size:13px; }
+  .chat-quick { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .chat-quick-btn { padding:6px 12px; border:1px solid var(--blush); border-radius:99px; background:none; font-size:11px; color:var(--muted); cursor:pointer; font-family:'DM Sans',sans-serif; }
+  .chat-quick-btn:hover { border-color:var(--rose); color:var(--rose); }
+  .cycle-phase-selector { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:16px; }
+  .phase-btn { padding:12px; border:1px solid var(--blush); border-radius:12px; background:none; cursor:pointer; text-align:center; font-family:'DM Sans',sans-serif; transition:all .2s; }
+  .phase-btn.active { background:var(--deep); border-color:var(--deep); color:var(--cream); }
+  .phase-btn .phase-icon { font-size:20px; display:block; margin-bottom:4px; }
+  .phase-btn .phase-name { font-size:12px; font-weight:500; }
+  .phase-btn .phase-days { font-size:10px; color:var(--muted); }
+  .phase-btn.active .phase-days { color:var(--blush); }
+  .phase-tip { background:var(--light); border-radius:12px; padding:14px; margin-bottom:10px; display:flex; gap:10px; }
+  .phase-tip-icon { font-size:20px; flex-shrink:0; }
+  .phase-tip-title { font-size:13px; font-weight:500; margin-bottom:4px; }
+  .phase-tip-text { font-size:12px; color:var(--muted); line-height:1.6; }
+  .cycle-calendar { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:14px; }
+  .cal-day { aspect-ratio:1; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:500; }
+  .cal-menstrual{background:#e8b4b8;color:#6b2d32;} .cal-follicular{background:#b8d4e8;color:#1a4a6b;} .cal-ovulation{background:#f5d5a0;color:#6b4a00;} .cal-luteal{background:#c8e0c8;color:#1a4a1a;}
+  .cycle-legend { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+  .cycle-legend-item { display:flex; align-items:center; gap:4px; font-size:11px; color:var(--muted); }
+  .cycle-legend-dot { width:10px; height:10px; border-radius:3px; }
+  .karte-card { background:white; border:1px solid var(--light); border-radius:16px; padding:18px; margin-bottom:12px; }
+  .karte-date { font-size:11px; color:var(--muted); margin-bottom:10px; }
+  .karte-ages { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+  .karte-age .num { font-family:'Cormorant Garamond',serif; font-size:36px; font-weight:300; line-height:1; }
+  .karte-age .lbl { font-size:10px; color:var(--muted); }
+  .karte-age.skin .num { color:var(--rose); }
+  .karte-arrow { font-size:18px; color:var(--blush); }
+  .karte-scores { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:10px; }
+  .karte-score { background:var(--light); border-radius:8px; padding:8px 10px; font-size:12px; display:flex; justify-content:space-between; }
+  .karte-score span { color:var(--rose); font-weight:500; }
+  .karte-del { background:none; border:none; font-size:11px; color:var(--muted); cursor:pointer; text-decoration:underline; }
+  .btn-save { width:100%; padding:14px; background:var(--rose); color:white; border:none; border-radius:12px; font-family:'DM Sans',sans-serif; font-size:14px; cursor:pointer; margin-bottom:10px; }
+</style>
+</head>
+<body>
+<div class="container" id="container">
+  <div class="hero-frame"><div class="hero-frame-inner">
+  <span class="hero-corner tl">◆</span><span class="hero-corner tr">◆</span><span class="hero-corner bl">◆</span><span class="hero-corner br">◆</span>
+  <div class="header">
+    <div class="logo">✦ SkinAge ✦</div>
+    <div style="text-align:right;margin-bottom:8px;">
+      <span onclick="showKarte(true)" style="font-size:12px;color:var(--rose);cursor:pointer;text-decoration:underline;">📋 美容カルテを見る</span>
+    </div>
+    <h1>あなたの肌、<br><em>何歳ですか？</em></h1>
+    <p>自撮り写真1枚で、肌年齢を<br>詳しく解析します</p>
+  </div>
+
+  <div id="uploadSection">
+    <div class="dob-card" id="dobCard">
+      <label id="dobLabel">生年月日を入力してください</label>
+      <div class="dob-inputs" id="dobInputs">
+        <select id="dobYear"></select><span class="dob-sep">年</span>
+        <select id="dobMonth"></select><span class="dob-sep">月</span>
+        <select id="dobDay"></select><span class="dob-sep">日</span>
+      </div>
+      <div id="dobSaved" style="display:none;margin-top:10px;align-items:center;justify-content:space-between;">
+        <span id="dobSavedText" style="font-size:14px;font-weight:500;color:var(--deep);"></span>
+        <button onclick="resetDob()" style="font-size:11px;color:var(--muted);background:none;border:none;cursor:pointer;text-decoration:underline;">変更する</button>
+      </div>
+    </div>
+    <div class="upload-area" id="uploadArea" style="min-height:320px;">
+      <input type="file" id="fileInput" accept="image/*" />
+      <div class="upload-content" style="padding:24px 16px;">
+        <div style="position:relative;width:200px;height:240px;margin:0 auto 16px;">
+          <svg viewBox="0 0 200 240" style="width:100%;height:100%;">
+            <ellipse cx="100" cy="118" rx="76" ry="100" fill="rgba(201,133,106,0.08)" stroke="#C9856A" stroke-width="3"/>
+            <text x="100" y="128" text-anchor="middle" font-size="56" opacity="0.15">👤</text>
+          </svg>
+        </div>
+        <strong style="font-size:14px;color:var(--deep);">顔を画面中央に合わせて撮影</strong>
+        <div style="margin-top:10px;background:var(--light);border-radius:10px;padding:10px 14px;text-align:left;">
+          <div style="font-size:12px;color:var(--deep);line-height:1.9;">
+            ✅ フロントカメラに切り替えて<br>
+            ✅ 顔を画面の中央に<br>
+            ✅ 明るい場所で撮影
+          </div>
+        </div>
+        <small style="display:block;margin-top:8px;color:var(--rose);font-size:12px;font-weight:500;">👆 タップしてカメラを起動</small>
+      </div>
+    </div>
+    <div id="previewWrap">
+      <img id="previewImg" alt="プレビュー" />
+      <div class="preview-overlay"></div>
+      <button class="preview-change" id="changeBtn">変更</button>
+    </div>
+    <div id="questionnaireCard" style="display:none;background:white;border:1px solid var(--blush);border-radius:20px;padding:24px;margin-top:16px;">
+      <div style="font-size:11px;letter-spacing:.25em;text-transform:uppercase;color:var(--rose);margin-bottom:16px;">✦ 今日の体調チェック</div>
+      <div style="margin-bottom:16px;">
+        <div style="font-size:13px;font-weight:500;margin-bottom:8px;">😴 昨夜の睡眠は？</div>
+        <div style="display:flex;gap:8px;" id="q1">
+          <button class="q-btn active" data-val="2" onclick="selectQ('q1',this)">7時間以上</button>
+          <button class="q-btn" data-val="0" onclick="selectQ('q1',this)">5〜6時間</button>
+          <button class="q-btn" data-val="-3" onclick="selectQ('q1',this)">4時間以下</button>
+        </div>
+      </div>
+      <div style="margin-bottom:16px;">
+        <div style="font-size:13px;font-weight:500;margin-bottom:8px;">💧 今日の水分補給は？</div>
+        <div style="display:flex;gap:8px;" id="q2">
+          <button class="q-btn active" data-val="2" onclick="selectQ('q2',this)">しっかり飲んだ</button>
+          <button class="q-btn" data-val="0" onclick="selectQ('q2',this)">普通</button>
+          <button class="q-btn" data-val="-2" onclick="selectQ('q2',this)">あまり飲んでない</button>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:500;margin-bottom:8px;">😤 最近のストレスは？</div>
+        <div style="display:flex;gap:8px;" id="q3">
+          <button class="q-btn active" data-val="1" onclick="selectQ('q3',this)">少ない</button>
+          <button class="q-btn" data-val="0" onclick="selectQ('q3',this)">普通</button>
+          <button class="q-btn" data-val="-2" onclick="selectQ('q3',this)">多い</button>
+        </div>
+      </div>
+    </div>
+    <button class="btn-primary" id="analyzeBtn" disabled onclick="analyze()">診断する</button>
+  </div>
+  </div></div>
+
+  <div id="loadingWrap">
+    <div class="loading-ring"></div>
+    <p id="loadingText">肌を精密解析しています…</p>
+  </div>
+
+  <div id="resultWrap">
+    <div style="display:flex;gap:10px;margin-bottom:16px;">
+      <button onclick="reset()" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:none;border:1px solid var(--blush);border-radius:10px;padding:10px;font-size:12px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;">← 再診断</button>
+      <button onclick="showKarte(true)" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:none;border:1px solid var(--blush);border-radius:10px;padding:10px;font-size:12px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;">📋 カルテ</button>
+    </div>
+    <div class="age-hero">
+      <div class="age-hero-label">肌年齢診断結果</div>
+      <div class="age-compare">
+        <div class="age-block real"><div class="num" id="realAgeNum">--</div><div class="lbl">実年齢</div></div>
+        <div class="age-arrow">→</div>
+        <div class="age-block"><div class="num" id="skinAgeNum">--</div><div class="lbl">肌年齢</div></div>
+      </div>
+      <div class="age-diff" id="ageDiff"></div>
+      <div class="age-tagline" id="ageSub"></div>
+    </div>
+    <div class="scores-grid">
+      <div class="score-card"><div class="sc-label">水分量</div><div class="sc-row"><span class="sc-val" id="s1">--</span><span class="sc-unit">点</span><span class="sc-max">/ 100</span></div><div class="sc-bar-bg"><div class="sc-bar-fill" id="b1"></div></div></div>
+      <div class="score-card"><div class="sc-label">毛穴ケア</div><div class="sc-row"><span class="sc-val" id="s2">--</span><span class="sc-unit">点</span><span class="sc-max">/ 100</span></div><div class="sc-bar-bg"><div class="sc-bar-fill" id="b2"></div></div></div>
+      <div class="score-card"><div class="sc-label">シミ・くすみ</div><div class="sc-row"><span class="sc-val" id="s3">--</span><span class="sc-unit">点</span><span class="sc-max">/ 100</span></div><div class="sc-bar-bg"><div class="sc-bar-fill" id="b3"></div></div></div>
+      <div class="score-card"><div class="sc-label">ハリ・弾力</div><div class="sc-row"><span class="sc-val" id="s4">--</span><span class="sc-unit">点</span><span class="sc-max">/ 100</span></div><div class="sc-bar-bg"><div class="sc-bar-fill" id="b4"></div></div></div>
+    </div>
+    <div class="comment-card">
+      <div class="cc-label">✦ 診断コメント</div>
+      <p id="commentText"></p>
+    </div>
+
+    <!-- タブナビ（全解放）-->
+    <div class="nav-tabs" id="featureTabs">
+      <button class="nav-tab active" onclick="switchTab('graph',this)">📈 グラフ</button>
+      <button class="nav-tab" onclick="switchTab('pore',this)">🔬 毛穴</button>
+      <button class="nav-tab" onclick="switchTab('dryness',this)">💧 乾燥</button>
+      <button class="nav-tab" onclick="switchTab('spot',this)">🌿 シミ</button>
+      <button class="nav-tab" onclick="switchTab('zone',this)">🗺️ 部位別</button>
+      <button class="nav-tab" onclick="switchTab('uv',this)">☀️ 紫外線</button>
+      <button class="nav-tab" onclick="switchTab('routine',this)">🌿 ルーティン</button>
+      <button class="nav-tab" onclick="switchTab('ingredient',this)">🧴 成分</button>
+      <button class="nav-tab" onclick="switchTab('mote',this)">💕 モテ肌</button>
+      <button class="nav-tab" onclick="switchTab('advice',this)">✨ アドバイス</button>
+      <button class="nav-tab" onclick="switchTab('chat',this)">💬 相談</button>
+      <button class="nav-tab" onclick="switchTab('cycle',this)">🌙 周期ケア</button>
+    </div>
+
+    <div class="tab-content active" id="tab-graph">
+      <div class="feature-section">
+        <div class="fs-label">📈 月別肌年齢トレンド</div>
+        <div class="chart-wrap"><canvas id="skinAgeChart"></canvas></div>
+        <div class="chart-legend">
+          <div class="chart-legend-item"><div class="chart-legend-dot" style="background:#C9856A;"></div>肌年齢</div>
+          <div class="chart-legend-item"><div class="chart-legend-dot" style="background:#9A8880;"></div>実年齢</div>
+        </div>
+        <div id="graphEmpty" class="chart-empty" style="display:none;">まだグラフデータがありません。カルテに保存するとグラフが表示されます。</div>
+      </div>
+    </div>
+    <div class="tab-content" id="tab-pore"><div class="feature-section"><div class="fs-label">🔬 毛穴分析</div><div id="pore-content"></div></div></div>
+    <div class="tab-content" id="tab-dryness"><div class="feature-section"><div class="fs-label">💧 乾燥分析</div><div id="dryness-content"></div></div></div>
+    <div class="tab-content" id="tab-spot"><div class="feature-section"><div class="fs-label">🌿 シミ・くすみ分析</div><div id="spot-content"></div></div></div>
+    <div class="tab-content" id="tab-zone"><div class="feature-section"><div class="fs-label">🗺️ 部位別診断</div><div id="zone-content"></div></div></div>
+    <div class="tab-content" id="tab-uv"><div class="feature-section"><div class="fs-label">☀️ 紫外線影響分析</div><div id="uv-content"></div></div></div>
+    <div class="tab-content" id="tab-routine">
+      <div class="feature-section">
+        <div class="fs-label">🌿 パーソナルスキンケアルーティン</div>
+        <div class="routine-tabs">
+          <button class="rtab active" onclick="switchRoutine('morning',this)">🌅 朝</button>
+          <button class="rtab" onclick="switchRoutine('night',this)">🌙 夜</button>
+          <button class="rtab" onclick="switchRoutine('weekly',this)">📅 週間</button>
+        </div>
+        <div id="routine-content"></div>
+      </div>
+    </div>
+    <div class="tab-content" id="tab-ingredient"><div class="feature-section"><div class="fs-label">🧴 あなたの肌に合う成分</div><div id="ingredient-list"></div></div></div>
+    <div class="tab-content" id="tab-mote">
+      <div class="feature-section">
+        <div class="fs-label">💕 モテ肌分析</div>
+        <div class="mote-hero">
+          <div style="font-size:11px;letter-spacing:.25em;opacity:.6;margin-bottom:8px;">ATTRACTIVENESS SCORE</div>
+          <div class="mote-score" id="moteScore">--</div>
+          <div style="font-size:12px;color:rgba(250,247,242,.6);">/ 100点</div>
+          <div class="mote-grade" id="moteGrade">---</div>
+        </div>
+        <div class="mote-grid" id="moteGrid"></div>
+        <div class="mote-comment" id="moteComment"></div>
+      </div>
+    </div>
+    <div class="tab-content" id="tab-advice"><div class="feature-section"><div class="fs-label">✨ AI美容アドバイス</div><div id="advice-content"></div></div></div>
+    <div class="tab-content" id="tab-chat">
+      <div class="feature-section">
+        <div class="fs-label">💬 美容相談チャット</div>
+        <div class="chat-messages" id="chatMessages"></div>
+        <div class="chat-quick" id="chatQuick">
+          <button class="chat-quick-btn" onclick="sendQuick(this)">保湿ケアを教えて</button>
+          <button class="chat-quick-btn" onclick="sendQuick(this)">シミを薄くしたい</button>
+          <button class="chat-quick-btn" onclick="sendQuick(this)">毛穴を目立たなくしたい</button>
+          <button class="chat-quick-btn" onclick="sendQuick(this)">朝のスキンケア順番</button>
+        </div>
+        <div class="chat-input-row">
+          <input class="chat-input" id="chatInput" type="text" placeholder="美容の悩みを相談する..." maxlength="100" />
+          <button class="chat-send" onclick="sendChat()">送信</button>
+        </div>
+      </div>
+    </div>
+    <div class="tab-content" id="tab-cycle">
+      <div class="feature-section">
+        <div class="fs-label">🌙 生理周期連携スキンケア</div>
+        <div class="cycle-phase-selector" id="cycleSelector">
+          <button class="phase-btn active" onclick="switchPhase('menstrual',this)"><span class="phase-icon">🔴</span><div class="phase-name">生理期</div><div class="phase-days">1〜5日目</div></button>
+          <button class="phase-btn" onclick="switchPhase('follicular',this)"><span class="phase-icon">🌱</span><div class="phase-name">卵胞期</div><div class="phase-days">6〜13日目</div></button>
+          <button class="phase-btn" onclick="switchPhase('ovulation',this)"><span class="phase-icon">⭐</span><div class="phase-name">排卵期</div><div class="phase-days">14〜16日目</div></button>
+          <button class="phase-btn" onclick="switchPhase('luteal',this)"><span class="phase-icon">🌙</span><div class="phase-name">黄体期</div><div class="phase-days">17〜28日目</div></button>
+        </div>
+        <div class="cycle-calendar" id="cycleCalendar"></div>
+        <div class="cycle-legend">
+          <div class="cycle-legend-item"><div class="cycle-legend-dot" style="background:#e8b4b8;"></div>生理期</div>
+          <div class="cycle-legend-item"><div class="cycle-legend-dot" style="background:#b8d4e8;"></div>卵胞期</div>
+          <div class="cycle-legend-item"><div class="cycle-legend-dot" style="background:#f5d5a0;"></div>排卵期</div>
+          <div class="cycle-legend-item"><div class="cycle-legend-dot" style="background:#c8e0c8;"></div>黄体期</div>
+        </div>
+        <div id="phaseContent"></div>
+      </div>
+    </div>
+
+    <button class="btn-save" id="saveBtn" onclick="saveToKarte()" style="display:none;">📋 美容カルテに保存する</button>
+    <button class="btn-retry" onclick="reset()">もう一度診断する</button>
+    <p class="notice">画像解析による参考情報です。医療・美容診断ではありません。</p>
+    <p style="text-align:center;margin-top:16px;font-size:12px;">
+      <a href="tokushoho.html" style="color:#9A8880;text-decoration:none;margin:0 8px;">特定商取引法に基づく表記</a>｜
+      <a href="privacy.html" style="color:#9A8880;text-decoration:none;margin:0 8px;">プライバシーポリシー</a>
+    </p>
+    <p style="text-align:center;margin-top:14px;font-size:11px;color:var(--muted);opacity:.5;">
+      累計アクセス <span id="busuanzi_value_site_pv">--</span> ｜ ユニーク訪問者 <span id="busuanzi_value_site_uv">--</span>
+    </p>
+  </div>
+
+  <!-- カルテ画面 -->
+  <div id="karteWrap" style="display:none;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+      <button onclick="showKarte(false)" style="background:none;border:1px solid var(--blush);border-radius:10px;padding:8px 14px;font-size:12px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;">← 戻る</button>
+      <h2 style="font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:300;">美容カルテ</h2>
+    </div>
+    <div id="karteList"></div>
+    <p id="karteEmpty" style="text-align:center;color:var(--muted);font-size:14px;padding:40px 0;display:none;">まだ記録がありません。</p>
+  </div>
+</div>
+
+<canvas id="analyzeCanvas" style="display:none;"></canvas>
+<script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+<script>
+function clamp(v,mn,mx){return Math.min(mx,Math.max(mn,v));}
+
+// DOB設定
+const yearSel=document.getElementById('dobYear'),monthSel=document.getElementById('dobMonth'),daySel=document.getElementById('dobDay');
+const curYear=new Date().getFullYear();
+for(let y=curYear-10;y>=1930;y--){const o=document.createElement('option');o.value=y;o.textContent=y+'年';yearSel.appendChild(o);}
+yearSel.value=curYear-40;
+for(let m=1;m<=12;m++){const o=document.createElement('option');o.value=m;o.textContent=m+'月';monthSel.appendChild(o);}
+monthSel.value=1;
+for(let d=1;d<=31;d++){const o=document.createElement('option');o.value=d;o.textContent=d+'日';daySel.appendChild(o);}
+daySel.value=1;
+(function loadSavedDob(){
+  const saved=JSON.parse(localStorage.getItem('skinageDob')||'null');
+  if(!saved)return;
+  yearSel.value=saved.y;monthSel.value=saved.m;daySel.value=saved.d;
+  showDobSaved(saved.y,saved.m,saved.d);
+})();
+function showDobSaved(y,m,d){
+  document.getElementById('dobLabel').style.display='none';
+  document.getElementById('dobInputs').style.display='none';
+  const s=document.getElementById('dobSaved');s.style.display='flex';
+  document.getElementById('dobSavedText').textContent=`🎂 ${y}年${m}月${d}日生まれ`;
+}
+function resetDob(){
+  localStorage.removeItem('skinageDob');
+  document.getElementById('dobLabel').style.display='block';
+  document.getElementById('dobInputs').style.display='flex';
+  document.getElementById('dobSaved').style.display='none';
+}
+[yearSel,monthSel,daySel].forEach(sel=>sel.addEventListener('change',()=>{
+  const y=yearSel.value,m=monthSel.value,d=daySel.value;
+  localStorage.setItem('skinageDob',JSON.stringify({y,m,d}));
+  showDobSaved(y,m,d);
+}));
+function calcRealAge(){
+  const y=parseInt(yearSel.value),m=parseInt(monthSel.value)-1,d=parseInt(daySel.value);
+  const today=new Date();let age=today.getFullYear()-y;
+  if(today<new Date(today.getFullYear(),m,d))age--;
+  return age;
+}
+
+// 画像アップロード
+let selectedFile=null;
+const fileInput=document.getElementById('fileInput'),previewWrap=document.getElementById('previewWrap'),
+      previewImg=document.getElementById('previewImg'),uploadArea=document.getElementById('uploadArea'),
+      analyzeBtn=document.getElementById('analyzeBtn');
+fileInput.addEventListener('change',(e)=>{
+  const file=e.target.files[0];if(!file)return;
+  selectedFile=file;previewImg.src=URL.createObjectURL(file);
+  uploadArea.style.display='none';previewWrap.style.display='block';
+  analyzeBtn.disabled=false;
+  document.getElementById('questionnaireCard').style.display='block';
+  document.getElementById('resultWrap').style.display='none';
+});
+document.getElementById('changeBtn').addEventListener('click',()=>{fileInput.value='';fileInput.click();});
+
+function selectQ(groupId,btn){
+  document.querySelectorAll('#'+groupId+' .q-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+function getQuestionBonus(){
+  const get=id=>{const a=document.querySelector('#'+id+' .q-btn.active');return a?parseInt(a.dataset.val):0;};
+  return get('q1')+get('q2')+get('q3');
+}
+
+function analyzeImage(img,realAge){
+  const canvas=document.getElementById('analyzeCanvas'),W=200,H=200;
+  canvas.width=W;canvas.height=H;
+  const ctx=canvas.getContext('2d');ctx.drawImage(img,0,0,W,H);
+  const data=ctx.getImageData(0,0,W,H).data,total=W*H;
+  let rSum=0,gSum=0,bSum=0;
+  const bright=new Float32Array(total),satArr=new Float32Array(total);
+  for(let i=0,p=0;i<data.length;i+=4,p++){
+    const r=data[i],g=data[i+1],b=data[i+2];
+    rSum+=r;gSum+=g;bSum+=b;bright[p]=(r+g+b)/3;
+    const mx=Math.max(r,g,b),mn=Math.min(r,g,b);satArr[p]=mx===0?0:(mx-mn)/mx;
+  }
+  const avgR=rSum/total,avgG=gSum/total,avgB=bSum/total,avgBright=(avgR+avgG+avgB)/3;
+  let varSum=0;for(let p=0;p<total;p++)varSum+=(bright[p]-avgBright)**2;
+  const stdDev=Math.sqrt(varSum/total);
+  let lcSum=0,lcBlocks=0;
+  for(let y=0;y<H-4;y+=4)for(let x=0;x<W-4;x+=4){
+    let mn=255,mx=0;
+    for(let dy=0;dy<4;dy++)for(let dx=0;dx<4;dx++){const v=bright[(y+dy)*W+(x+dx)];if(v<mn)mn=v;if(v>mx)mx=v;}
+    lcSum+=(mx-mn);lcBlocks++;
+  }
+  const localContrast=lcSum/lcBlocks;
+  let spotCount=0;
+  for(let p=0;p<total;p++)if(bright[p]<avgBright*0.78&&satArr[p]<0.28)spotCount++;
+  const spotRatio=spotCount/total;
+  let rbVarSum=0;const avgRB=avgR-avgB;
+  for(let i=0,p=0;i<data.length;i+=4,p++)rbVarSum+=(data[i]-data[i+2]-avgRB)**2;
+  const rbStd=Math.sqrt(rbVarSum/total),darkPenalty=Math.max(0,(160-avgBright)/160);
+  let imgHash=0;for(let i=0;i<data.length;i+=397){imgHash=(imgHash*33+data[i])%1000003;}
+  const today=new Date();
+  const dateSeed=today.getFullYear()*10000+(today.getMonth()+1)*100+today.getDate();
+  const combinedSeed=dateSeed*997+imgHash;
+  const seededRand=(offset)=>(((combinedSeed*1000003+offset*998244353)%10007)/10007-0.5)*2;
+  const hour=today.getHours();
+  const timeBonus=hour>=6&&hour<=10?3:hour>=23||hour<=4?-3:0;
+  const qBonus=getQuestionBonus();
+  const stdPenalty=Math.min(1,stdDev/60),lcPenalty=Math.min(1,localContrast/45);
+  const spotPenalty=Math.min(1,spotRatio*400),rbPenalty=Math.min(1,rbStd/35),darkPen=Math.min(0.6,darkPenalty);
+  const baseM=72-stdPenalty*18-darkPen*14,baseP=74-lcPenalty*20-stdPenalty*8;
+  const baseS=70-spotPenalty*18-rbPenalty*14-darkPen*10,baseF=73-lcPenalty*18-stdPenalty*12-darkPen*8;
+  const moisture=Math.round(clamp(baseM+seededRand(1)*6+timeBonus+qBonus*0.8,38,92));
+  const pores=Math.round(clamp(baseP+seededRand(2)*6+timeBonus*0.6+qBonus*0.5,38,90));
+  const spotsScore=Math.round(clamp(baseS+seededRand(3)*6+timeBonus*0.5+qBonus*0.6,35,90));
+  const firmness=Math.round(clamp(baseF+seededRand(4)*6+timeBonus*0.5+qBonus*0.5,38,90));
+  const qualityPenalty=(stdPenalty+lcPenalty+spotPenalty+rbPenalty+darkPen)/5;
+  let ageBias=Math.round(-2+qualityPenalty*8-qBonus*0.5+seededRand(5)*2-(timeBonus>0?1:0));
+  ageBias=clamp(ageBias,-5,8);
+  const skinAge=clamp(realAge+ageBias,Math.max(10,realAge-5),realAge+8);
+  const diff=skinAge-realAge;
+  const qLabel=qBonus>=4?'体調も良好で肌に有利な状態です。':qBonus<=-3?'睡眠・水分不足が肌に影響しています。':'';
+  let tagline,comment;
+  if(diff<=0){tagline='お肌イキイキ、絶好調です';comment=`実年齢と同じか、それ以上に若々しい肌年齢です。${qLabel}この調子で今のケアを続けましょう。`;}
+  else if(diff<=2){tagline='良好な肌状態です';comment=`実年齢より${diff}歳上の肌年齢です。${qLabel}このケアを続けることで更なる改善が期待できます。`;}
+  else if(diff<=4){tagline='やや老化サインが見られます';comment=`実年齢より${diff}歳上の肌年齢です。${qLabel}美白ケアと保湿を強化することで改善が期待できます。`;}
+  else if(diff<=6){tagline='エイジングサインが目立ちます';comment=`実年齢より${diff}歳上の肌年齢です。${qLabel}パーソナルケアプランで着実な改善を目指しましょう。`;}
+  else{tagline='集中的なケアが必要な状態です';comment=`実年齢より${diff}歳上の肌年齢です。${qLabel}専用の集中ケアで今すぐ若返りを始めましょう。`;}
+  return{skinAge,realAge,diff,moisture,pores,spotsScore,firmness,tagline,comment};
+}
+
+function analyze(){
+  if(!selectedFile)return;
+  const realAge=calcRealAge();
+  if(realAge<10||realAge>100){alert('正しい生年月日を入力してください');return;}
+  document.getElementById('uploadSection').style.display='none';
+  document.getElementById('loadingWrap').style.display='block';
+  const msgs=['肌を精密解析しています…','毛穴・シミを検出中…','水分量を計測中…','スコアを算出しています…'];
+  let mi=0;const msgEl=document.getElementById('loadingText');
+  const msgTimer=setInterval(()=>{mi=(mi+1)%msgs.length;msgEl.textContent=msgs[mi];},600);
+  const img=new Image();
+  img.onload=()=>{setTimeout(()=>{clearInterval(msgTimer);showResult(analyzeImage(img,realAge));},3000);};
+  img.src=URL.createObjectURL(selectedFile);
+}
+
+let lastResult=null,skinAgeChartInstance=null;
+function showResult(r){
+  lastResult=r;
+  document.getElementById('loadingWrap').style.display='none';
+  document.getElementById('realAgeNum').textContent=r.realAge;
+  document.getElementById('skinAgeNum').textContent=r.skinAge;
+  document.getElementById('ageDiff').textContent = r.diff<0 ? `実年齢より${-r.diff}歳若い` : r.diff===0 ? '実年齢と同じ' : `実年齢より${r.diff}歳上`;
+  document.getElementById('ageSub').textContent=r.tagline;
+  document.getElementById('commentText').textContent=r.comment;
+  [['s1','b1',r.moisture],['s2','b2',r.pores],['s3','b3',r.spotsScore],['s4','b4',r.firmness]].forEach(([s,b,v])=>{
+    document.getElementById(s).textContent=v;
+    setTimeout(()=>{document.getElementById(b).style.width=v+'%';},200);
+  });
+  const saveBtn=document.getElementById('saveBtn');
+  saveBtn.style.display='block';saveBtn.textContent='📋 美容カルテに保存する';saveBtn.disabled=false;
+  document.getElementById('resultWrap').style.display='block';
+  initRoutine(r);initIngredients(r);initMote(r);initAdvice(r);initChat(r);initCycle();
+  initPoreAnalysis(r);initDrynessAnalysis(r);initSpotAnalysis(r);initZoneAnalysis(r);initUVAnalysis(r);
+  switchTab('graph',document.querySelector('.nav-tab'));
+  renderGraph();
+}
+
+function reset(){
+  selectedFile=null;previewImg.src='';
+  uploadArea.style.display='flex';previewWrap.style.display='none';
+  analyzeBtn.disabled=true;
+  document.getElementById('questionnaireCard').style.display='none';
+  document.getElementById('uploadSection').style.display='block';
+  document.getElementById('loadingWrap').style.display='none';
+  document.getElementById('resultWrap').style.display='none';
+  fileInput.value='';
+}
+
+function switchTab(id,btn){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  if(btn)btn.classList.add('active');
+  if(id==='graph')renderGraph();
+}
+
+function renderGraph(){
+  const records=JSON.parse(localStorage.getItem('skinageKarte')||'[]');
+  const empty=document.getElementById('graphEmpty');
+  if(records.length===0){empty.style.display='block';return;}
+  empty.style.display='none';
+  const sorted=[...records].reverse().slice(-12);
+  const labels=sorted.map(r=>r.date.replace(/\d{4}年/,'').replace('日',''));
+  const ctx=document.getElementById('skinAgeChart').getContext('2d');
+  if(skinAgeChartInstance)skinAgeChartInstance.destroy();
+  skinAgeChartInstance=new Chart(ctx,{type:'line',data:{labels,datasets:[
+    {label:'肌年齢',data:sorted.map(r=>r.skinAge),borderColor:'#C9856A',backgroundColor:'rgba(201,133,106,.1)',tension:.4,pointBackgroundColor:'#C9856A',pointRadius:5,fill:true},
+    {label:'実年齢',data:sorted.map(r=>r.realAge),borderColor:'#9A8880',borderDash:[5,5],backgroundColor:'transparent',tension:.4,pointBackgroundColor:'#9A8880',pointRadius:4}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:false,grid:{color:'rgba(0,0,0,.05)'},ticks:{font:{size:11},color:'#9A8880'}},x:{grid:{display:false},ticks:{font:{size:10},color:'#9A8880'}}}}});
+}
+
+const ROUTINES={
+  morning:[
+    {step:1,title:'洗顔',desc:'ぬるま湯で優しく洗顔。泡立てネットで細かい泡を作り、こすらず泡で包むように洗います。',tip:'💡 朝は水洗いのみでもOK'},
+    {step:2,title:'化粧水',desc:'洗顔後すぐに導入美容液を塗布。ターンオーバーを促進し、後のスキンケアの浸透を高めます。',tip:'💡 水分量スコアが低い場合は2〜3回重ね付けを'},
+    {step:3,title:'美容液（ビタミンC誘導体）',desc:'シミ・くすみ対策にビタミンC誘導体配合の美容液を使用。抗酸化作用でダメージを予防します。',tip:'💡 刺激を感じる場合は隔日使用からスタート'},
+    {step:4,title:'乳液・クリーム',desc:'水分を閉じ込めるために乳液またはクリームでフタをします。',tip:'💡 ハリスコアが低い場合はコラーゲン配合を選ぶ'},
+    {step:5,title:'日焼け止め（SPF50+）',desc:'紫外線はシミ・くすみ・老化の最大の原因。SPF50+・PA++++を毎朝必ず塗布。',tip:'💡 2〜3時間おきに塗り直すと効果的'}
+  ],
+  night:[
+    {step:1,title:'クレンジング',desc:'メイクやSPFをしっかり落とします。乾燥肌の方はミルクタイプがおすすめ。',tip:'💡 Wクレンジングで翌朝の化粧ノリが変わります'},
+    {step:2,title:'洗顔',desc:'クレンジング後に泡洗顔でWクレンジング。',tip:'💡 38〜40℃のぬるま湯で'},
+    {step:3,title:'化粧水（保湿重点）',desc:'夜は水分補給に特化した化粧水を。セラミド・ヒアルロン酸・グリセリン配合のものを。',tip:'💡 コットンより手で包み込むように'},
+    {step:4,title:'美容液（レチノール・ナイアシンアミド）',desc:'夜専用の高機能美容液でターンオーバーを促進。',tip:'💡 レチノールは最初は週2〜3回から'},
+    {step:5,title:'クリーム（就寝前集中ケア）',desc:'就寝中は肌の修復のゴールデンタイム。やや重めのクリームで長時間保湿をキープ。',tip:'💡 気になる部位にはスリーピングマスクを重ね付け'}
+  ],
+  weekly:[
+    {step:1,title:'週2回: 酵素洗顔',desc:'古い角質を丁寧に取り除く酵素洗顔。毛穴の黒ずみ・くすみの改善に効果的。',tip:'💡 毛穴スコアが低い方は週3回でも◎'},
+    {step:2,title:'週1〜2回: シートマスク',desc:'高濃度美容液のシートマスクで肌に栄養を補給。15〜20分置いてから残液をフェイスラインに。',tip:'💡 診断前日のマスクが一番効果的'},
+    {step:3,title:'月1〜2回: ピーリング',desc:'AHA/BHA配合のピーリングで角質をケア。肌のターンオーバーを正常化。',tip:'💡 敏感肌は低濃度・短時間からスタート'}
+  ]
+};
+function switchRoutine(type,btn){
+  document.querySelectorAll('.rtab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderRoutine(type);
+}
+function renderRoutine(type){
+  document.getElementById('routine-content').innerHTML=ROUTINES[type].map(s=>`
+    <div class="routine-step"><div class="routine-step-num">${s.step}</div>
+    <div class="routine-step-content"><div class="routine-step-title">${s.title}</div>
+    <div class="routine-step-desc">${s.desc}</div><div class="routine-step-tip">${s.tip}</div></div></div>`).join('');
+}
+function initRoutine(r){renderRoutine('morning');}
+
+function initIngredients(r){
+  const ings=[
+    {icon:'💧',name:'ヒアルロン酸',effect:'肌の保水力を高め、乾燥による小じわを目立たなくします。',tags:['保湿','乾燥肌'],priority:r.moisture<50?3:1},
+    {icon:'🌿',name:'セラミド',effect:'バリア機能を強化し、外部刺激から肌を守ります。',tags:['バリア強化','敏感肌OK'],priority:r.moisture<50?3:2},
+    {icon:'✨',name:'ビタミンC誘導体',effect:'メラニン生成を抑制しシミ・くすみを改善。',tags:['美白','シミケア'],priority:r.spotsScore<50?3:1},
+    {icon:'🌸',name:'ナイアシンアミド',effect:'透明感のある肌へ。毛穴を引き締める効果もあり。',tags:['美白','毛穴ケア'],priority:r.pores<50?3:2},
+    {icon:'🔬',name:'レチノール',effect:'細胞のターンオーバーを促進し、シワ・ハリの改善に。',tags:['エイジングケア','ハリUP'],priority:r.firmness<50?3:1},
+    {icon:'🧬',name:'ペプチド',effect:'コラーゲン・エラスチンの産生を促進。',tags:['ハリUP','弾力'],priority:r.firmness<50?3:1},
+  ].sort((a,b)=>b.priority-a.priority);
+  document.getElementById('ingredient-list').innerHTML=ings.map(ing=>`
+    <div class="ingredient-card"><div class="ing-icon">${ing.icon}</div>
+    <div class="ing-content"><div class="ing-name">${ing.name}</div>
+    <div class="ing-effect">${ing.effect}</div>
+    <div class="ing-tags">${ing.tags.map(t=>`<span class="ing-tag">${t}</span>`).join('')}</div></div></div>`).join('');
+}
+
+function initMote(r){
+  const avg=(r.moisture+r.pores+r.spotsScore+r.firmness)/4;
+  const moteScore=Math.round(clamp(avg*0.9+5,30,95));
+  let grade;
+  if(moteScore>=85)grade='SSランク ✨';
+  else if(moteScore>=75)grade='Aランク 💖';
+  else if(moteScore>=65)grade='Bランク 💕';
+  else if(moteScore>=55)grade='Cランク 🌷';
+  else grade='Dランク 📈';
+  document.getElementById('moteScore').textContent=moteScore;
+  document.getElementById('moteGrade').textContent=grade;
+  const t=v=>Math.min(95,Math.round(v*0.9+5));
+  document.getElementById('moteGrid').innerHTML=`
+    <div class="mote-item"><div class="mote-item-icon">🔮</div><div class="mote-item-label">透明感</div><div class="mote-item-val">${t(r.spotsScore)}</div></div>
+    <div class="mote-item"><div class="mote-item-icon">✨</div><div class="mote-item-label">ツヤ・輝き</div><div class="mote-item-val">${t((r.moisture+r.spotsScore)/2)}</div></div>
+    <div class="mote-item"><div class="mote-item-icon">🌸</div><div class="mote-item-label">なめらかさ</div><div class="mote-item-val">${t(r.pores)}</div></div>
+    <div class="mote-item"><div class="mote-item-icon">🌟</div><div class="mote-item-label">若々しさ</div><div class="mote-item-val">${t(r.firmness)}</div></div>`;
+  const comments=[[85,'異性からの印象スコアは非常に高い！透明感とツヤのある肌は「第一印象が良い」と評価されます。'],[75,'透明感・ツヤ感ともにバランスよし。少しの改善で一段上のモテ肌へ。'],[65,'毛穴ケアと美白に集中することでスコアアップが期待できます。'],[0,'今が変わり時！集中ケアを継続すれば3ヶ月で劇的な変化を実感できます。']];
+  document.getElementById('moteComment').textContent=(comments.find(([t])=>moteScore>=t)||comments[comments.length-1])[1];
+}
+
+function initAdvice(r){
+  const weak=[];
+  if(r.moisture<50)weak.push('moisture');
+  if(r.pores<50)weak.push('pores');
+  if(r.spotsScore<50)weak.push('spots');
+  if(r.firmness<50)weak.push('firmness');
+  const db={
+    moisture:{title:'🔴 保湿ケア強化',items:[{icon:'💧',text:'セラミド・ヒアルロン酸配合の化粧水を手で3回重ね付けしてください。'},{icon:'🌊',text:'室内の湿度を50〜60%に保つ加湿器と、1日1.5〜2Lの水分補給を意識してください。'}]},
+    pores:{title:'🟠 毛穴ケア',items:[{icon:'🫧',text:'週2回の酵素洗顔でたまった角栓・皮脂を取り除きましょう。'},{icon:'🧴',text:'ナイアシンアミド5%配合の美容液を朝晩使用してください。'}]},
+    spots:{title:'🟡 美白ケア',items:[{icon:'☀️',text:'SPF50+を毎朝塗布し、外出中は2〜3時間ごとに塗り直してください。'},{icon:'✨',text:'朝のルーティンにビタミンC誘導体美容液を追加しましょう。'}]},
+    firmness:{title:'🔵 エイジングケア',items:[{icon:'🔬',text:'コラーゲン産生を促すレチノールまたはペプチド配合の美容液を夜に。'},{icon:'💆',text:'毎晩のフェイスマッサージ（5分）でリンパの流れを改善。'}]}
+  };
+  const targets=weak.length>0?weak:['moisture'];
+  document.getElementById('advice-content').innerHTML=targets.map(key=>{
+    const ad=db[key];
+    return `<div style="margin-bottom:16px;"><div class="advice-cat-title">${ad.title}</div>${ad.items.map(it=>`<div class="advice-item"><div class="advice-icon">${it.icon}</div><div class="advice-text">${it.text}</div></div>`).join('')}</div>`;
+  }).join('');
+}
+
+const chatDB={
+  '保湿':'保湿は朝晩2回が基本です。洗顔後30秒以内に化粧水を付けることが大切。セラミドやヒアルロン酸配合のものを選び、手で優しく押し込むように。',
+  'シミ':'シミケアで最も重要なのは①朝のSPF50+日焼け止め②ビタミンC誘導体美容液③夜の美白クリームの3ステップです。',
+  '毛穴':'毛穴ケアは週2回の酵素洗顔＋ナイアシンアミド美容液が最も効果的です。',
+  '朝のスキンケア':'朝の順序は①洗顔②化粧水③美容液④乳液・クリーム⑤日焼け止めです。',
+  'default':'おっしゃる内容について詳しくお答えします。まず保湿とUVケアを基本として、弱いと判断されたスコアを改善するケアを優先的に行うことが最も効率的です。'
+};
+let chatInitialized=false;
+function initChat(r){
+  if(chatInitialized)return;
+  chatInitialized=true;
+  document.getElementById('chatMessages').innerHTML='';
+  addChatMsg('ai',`こんにちは！SkinAge AIアドバイザーです🌸 水分量${r.moisture}点、毛穴ケア${r.pores}点、シミ・くすみ${r.spotsScore}点、ハリ・弾力${r.firmness}点です。お肌のお悩みを何でも聞かせてください！`);
+}
+function addChatMsg(role,text){
+  const msgs=document.getElementById('chatMessages');
+  const div=document.createElement('div');div.className='chat-msg '+role;div.textContent=text;
+  msgs.appendChild(div);msgs.scrollTop=msgs.scrollHeight;
+}
+function sendChat(){
+  const input=document.getElementById('chatInput');const text=input.value.trim();if(!text)return;
+  addChatMsg('user',text);input.value='';
+  setTimeout(()=>{let reply=chatDB.default;for(const k of Object.keys(chatDB)){if(text.includes(k)){reply=chatDB[k];break;}}addChatMsg('ai',reply);},800);
+}
+function sendQuick(btn){document.getElementById('chatInput').value=btn.textContent;sendChat();}
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.activeElement===document.getElementById('chatInput'))sendChat();});
+
+const PHASES={
+  menstrual:{name:'生理期（1〜5日目）',color:'#e8b4b8',tips:[{icon:'💊',title:'刺激を最小限に',text:'ホルモンバランスが不安定で肌が敏感になります。低刺激製品に切り替えましょう。'},{icon:'💧',title:'保湿を重視',text:'エストロゲンが低下し肌の水分量が減少します。セラミド・ヒアルロン酸を重点的に補給。'}]},
+  follicular:{name:'卵胞期（6〜13日目）',color:'#b8d4e8',tips:[{icon:'✨',title:'美白・美容を攻める時期',text:'エストロゲンが増加し肌状態が最も良くなります。新しいスキンケアの導入に最適。'},{icon:'🔬',title:'集中ケアを取り入れる',text:'肌のターンオーバーが活発化します。ピーリングなど積極的なケアに適した時期。'}]},
+  ovulation:{name:'排卵期（14〜16日目）',color:'#f5d5a0',tips:[{icon:'🌟',title:'肌のピークタイム',text:'女性ホルモンが最高値に達し、肌のツヤ・ハリが最高の状態になります。'},{icon:'🛡️',title:'日焼け止めを強化',text:'紫外線ダメージを受けやすい時期。SPF50+をこまめに塗り直してください。'}]},
+  luteal:{name:'黄体期（17〜28日目）',color:'#c8e0c8',tips:[{icon:'🌊',title:'皮脂・むくみ対策',text:'プロゲステロンの増加で皮脂分泌が増えます。洗顔後の毛穴ケアを丁寧に。'},{icon:'💆',title:'リラックスケアを',text:'ストレスがニキビ・肌荒れを悪化させます。アロマバスなどを取り入れて。'}]}
+};
+function switchPhase(phase,btn){
+  document.querySelectorAll('.phase-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');renderPhase(phase);
+}
+function renderPhase(phase){
+  const p=PHASES[phase];
+  document.getElementById('phaseContent').innerHTML=`
+    <div style="background:${p.color};border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:13px;font-weight:500;">📍 ${p.name}</div>
+    ${p.tips.map(t=>`<div class="phase-tip"><div class="phase-tip-icon">${t.icon}</div><div><div class="phase-tip-title">${t.title}</div><div class="phase-tip-text">${t.text}</div></div></div>`).join('')}`;
+}
+function initCycle(){
+  const cal=document.getElementById('cycleCalendar');
+  const phaseMap=[[1,5,'menstrual'],[6,13,'follicular'],[14,16,'ovulation'],[17,28,'luteal']];
+  const colorMap={menstrual:'cal-menstrual',follicular:'cal-follicular',ovulation:'cal-ovulation',luteal:'cal-luteal'};
+  cal.innerHTML=Array.from({length:28},(_,i)=>i+1).map(d=>{
+    const ph=phaseMap.find(([s,e])=>d>=s&&d<=e);
+    return `<div class="cal-day ${ph?colorMap[ph[2]]:''}'">${d}</div>`;
+  }).join('');
+  renderPhase('menstrual');
+}
+
+function initPoreAnalysis(r){
+  const score=r.pores,level=score>=70?'良好':score>=50?'普通':'要ケア',levelColor=score>=70?'#2d8a5e':score>=50?'#c9856a':'#c0453a';
+  document.getElementById('pore-content').innerHTML=`
+    <div style="text-align:center;background:var(--light);border-radius:14px;padding:20px;margin-bottom:16px;">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">毛穴スコア</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:64px;font-weight:300;color:var(--deep);">${score}</div>
+      <div style="font-size:13px;font-weight:500;color:${levelColor};">${level}</div>
+    </div>
+    <div class="phase-tip"><div class="phase-tip-icon">🫧</div><div><div class="phase-tip-title">週2回の酵素洗顔</div><div class="phase-tip-text">角栓・余分な皮脂を取り除きます。使用後は必ず保湿を。</div></div></div>
+    <div class="phase-tip"><div class="phase-tip-icon">🧴</div><div><div class="phase-tip-title">ナイアシンアミド美容液</div><div class="phase-tip-text">皮脂分泌を抑制し毛穴を引き締めます。5〜10%濃度のものを朝晩使用。</div></div></div>`;
+}
+function initDrynessAnalysis(r){
+  const score=r.moisture,level=score>=70?'うるおい十分':score>=50?'やや乾燥気味':'乾燥注意',levelColor=score>=70?'#2d8a5e':score>=50?'#c9856a':'#c0453a';
+  document.getElementById('dryness-content').innerHTML=`
+    <div style="text-align:center;background:var(--light);border-radius:14px;padding:20px;margin-bottom:16px;">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">水分量スコア</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:64px;font-weight:300;color:var(--deep);">${score}</div>
+      <div style="font-size:13px;font-weight:500;color:${levelColor};">${level}</div>
+    </div>
+    <div class="phase-tip"><div class="phase-tip-icon">💧</div><div><div class="phase-tip-title">今すぐできる保湿強化</div><div class="phase-tip-text">洗顔後30秒以内に化粧水を。セラミド・ヒアルロン酸配合を手で3回重ね付けし、乳液でフタをしてください。</div></div></div>`;
+}
+function initSpotAnalysis(r){
+  const score=r.spotsScore,level=score>=70?'透明感あり':score>=50?'軽度のくすみ':'シミ・くすみケア必要',levelColor=score>=70?'#2d8a5e':score>=50?'#c9856a':'#c0453a';
+  document.getElementById('spot-content').innerHTML=`
+    <div style="text-align:center;background:var(--light);border-radius:14px;padding:20px;margin-bottom:16px;">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">シミ・くすみスコア</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:64px;font-weight:300;color:var(--deep);">${score}</div>
+      <div style="font-size:13px;font-weight:500;color:${levelColor};">${level}</div>
+    </div>
+    <div class="phase-tip"><div class="phase-tip-icon">☀️</div><div><div class="phase-tip-title">シミ対策の最優先事項</div><div class="phase-tip-text">毎朝SPF50+日焼け止めを塗布。ビタミンC誘導体美容液を朝に使用し、夜はトラネキサム酸またはアルブチン配合のクリームで美白ケアを。</div></div></div>`;
+}
+function initZoneAnalysis(r){
+  const zones=[
+    {name:'おでこ',icon:'👆',m:Math.round(r.moisture*0.92),p:Math.round(r.pores*0.88),s:Math.round(r.spotsScore*0.95),f:Math.round(r.firmness*0.96)},
+    {name:'Tゾーン',icon:'👃',m:Math.round(r.moisture*0.80),p:Math.round(r.pores*0.75),s:Math.round(r.spotsScore*0.90),f:Math.round(r.firmness*0.95)},
+    {name:'左頬',icon:'◀️',m:Math.round(r.moisture*1.05),p:Math.round(r.pores*1.04),s:Math.round(r.spotsScore*0.97),f:Math.round(r.firmness*0.98)},
+    {name:'右頬',icon:'▶️',m:Math.round(r.moisture*1.04),p:Math.round(r.pores*1.03),s:Math.round(r.spotsScore*0.98),f:Math.round(r.firmness*0.97)},
+    {name:'あご',icon:'👄',m:Math.round(r.moisture*0.88),p:Math.round(r.pores*0.90),s:Math.round(r.spotsScore*0.92),f:Math.round(r.firmness*0.90)},
+  ].map(z=>({...z,m:clamp(z.m,10,100),p:clamp(z.p,10,100),s:clamp(z.s,10,100),f:clamp(z.f,10,100)}));
+  document.getElementById('zone-content').innerHTML=zones.map(z=>{
+    const avg=Math.round((z.m+z.p+z.s+z.f)/4),color=avg>=70?'#2d8a5e':avg>=50?'#c9856a':'#c0453a';
+    return `<div style="border:1px solid var(--light);border-radius:12px;padding:14px;margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px;"><div style="font-size:14px;font-weight:500;">${z.icon} ${z.name}</div><div style="font-size:18px;font-weight:500;color:${color};">${avg}点</div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+        ${[['水分',z.m],['毛穴',z.p],['シミ',z.s],['ハリ',z.f]].map(([l,v])=>`<div style="background:var(--light);border-radius:8px;padding:6px 10px;font-size:11px;display:flex;justify-content:space-between;"><span style="color:var(--muted);">${l}</span><span style="font-weight:500;">${v}</span></div>`).join('')}
+      </div></div>`;
+  }).join('');
+}
+function initUVAnalysis(r){
+  const month=new Date().getMonth()+1;
+  const uvIndex=[3,3,4,7,9,10,10,9,8,5,3,3][month-1];
+  const uvLevel=uvIndex>=8?'非常に強い':uvIndex>=6?'強い':uvIndex>=3?'中程度':'弱い';
+  const uvColor=uvIndex>=8?'#c0453a':uvIndex>=6?'#e8593c':uvIndex>=3?'#c9856a':'#2d8a5e';
+  document.getElementById('uv-content').innerHTML=`
+    <div style="background:linear-gradient(135deg,#3A2A24,#5a3d35);border-radius:14px;padding:20px;margin-bottom:16px;color:var(--cream);">
+      <div style="font-size:11px;opacity:.6;margin-bottom:8px;">今月の紫外線指数 (${month}月)</div>
+      <div style="display:flex;align-items:flex-end;gap:12px;">
+        <div style="font-family:'Cormorant Garamond',serif;font-size:72px;font-weight:300;line-height:1;">${uvIndex}</div>
+        <div style="padding-bottom:12px;"><div style="font-size:14px;font-weight:500;color:${uvColor};">${uvLevel}</div><div style="font-size:11px;opacity:.6;">UV Index</div></div>
+      </div>
+    </div>
+    <div class="phase-tip"><div class="phase-tip-icon">🛡️</div><div><div class="phase-tip-title">今月の紫外線対策</div><div class="phase-tip-text">${uvIndex>=6?'紫外線が非常に強い時期です。外出30分前にSPF50+を塗布し、2〜3時間ごとに塗り直してください。':'紫外線ケアを継続しましょう。曇りの日も紫外線は70%透過します。'}</div></div></div>`;
+}
+
+function saveToKarte(){
+  if(!lastResult)return;
+  const records=JSON.parse(localStorage.getItem('skinageKarte')||'[]');
+  const now=new Date();
+  records.unshift({id:Date.now(),date:now.toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric'}),realAge:lastResult.realAge,skinAge:lastResult.skinAge,diff:lastResult.diff,moisture:lastResult.moisture,pores:lastResult.pores,spots:lastResult.spotsScore,firmness:lastResult.firmness});
+  localStorage.setItem('skinageKarte',JSON.stringify(records));
+  const btn=document.getElementById('saveBtn');btn.textContent='✅ カルテに保存しました！';btn.disabled=true;
+}
+function showKarte(show){
+  document.querySelector('.header').style.display=show?'none':'';
+  if(!show){
+    if(lastResult){document.getElementById('uploadSection').style.display='none';document.getElementById('resultWrap').style.display='block';}
+    else{document.getElementById('uploadSection').style.display='block';document.getElementById('resultWrap').style.display='none';}
+  } else {
+    document.getElementById('uploadSection').style.display='none';document.getElementById('resultWrap').style.display='none';
+  }
+  document.getElementById('loadingWrap').style.display='none';
+  document.getElementById('karteWrap').style.display=show?'block':'none';
+  if(show)renderKarte();
+}
+function renderKarte(){
+  const records=JSON.parse(localStorage.getItem('skinageKarte')||'[]');
+  const list=document.getElementById('karteList'),empty=document.getElementById('karteEmpty');
+  if(records.length===0){list.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  list.innerHTML=records.map(r=>`
+    <div class="karte-card"><div class="karte-date">${r.date}</div>
+    <div class="karte-ages"><div class="karte-age"><div class="num">${r.realAge}</div><div class="lbl">実年齢</div></div>
+    <div class="karte-arrow">→</div><div class="karte-age skin"><div class="num">${r.skinAge}</div><div class="lbl">肌年齢</div></div>
+    <div style="margin-left:auto;background:var(--rose);color:white;font-size:11px;padding:3px 10px;border-radius:99px;">${r.diff<0?'-'+(-r.diff):'+'+r.diff}歳</div></div>
+    <div class="karte-scores">
+      <div class="karte-score">水分量 <span>${r.moisture}点</span></div>
+      <div class="karte-score">毛穴ケア <span>${r.pores}点</span></div>
+      <div class="karte-score">シミ・くすみ <span>${r.spots}点</span></div>
+      <div class="karte-score">ハリ・弾力 <span>${r.firmness}点</span></div>
+    </div>
+    <div style="text-align:right;"><button class="karte-del" onclick="deleteKarte(${r.id})">削除</button></div></div>`).join('');
+}
+function deleteKarte(id){
+  let r=JSON.parse(localStorage.getItem('skinageKarte')||'[]');
+  r=r.filter(x=>x.id!==id);localStorage.setItem('skinageKarte',JSON.stringify(r));renderKarte();
+}
+</script>
+</body>
+</html>
