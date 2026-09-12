@@ -97,7 +97,8 @@
   .hero-frame .upload-content strong { color:#fff !important; }
   .hero-frame .upload-content small { color:rgba(255,255,255,.85) !important; }
   .hero-frame .upload-content div[style*="background:var(--light)"] { background:rgba(255,255,255,.12) !important; }
-  .hero-frame .upload-content ellipse { stroke:#F0C878 !important; fill:rgba(255,255,255,.12) !important; }
+  .hero-frame .upload-content ellipse.guide-inner { stroke:#F0C878 !important; fill:rgba(255,255,255,.12) !important; }
+  .hero-frame .upload-content ellipse.guide-outer { stroke:#F0C878 !important; fill:none !important; }
   .hero-frame .upload-content path { stroke:#F0C878 !important; }
   .hero-frame #previewWrap { margin:16px 20px 0; border-color:rgba(255,255,255,.3) !important; }
   .hero-frame #questionnaireCard { background:rgba(255,255,255,.05) !important; border-color:#4A3E6B !important; margin:16px 20px 0 !important; }
@@ -224,7 +225,12 @@
       <div class="upload-content" style="padding:24px 16px;">
         <div style="position:relative;width:200px;height:240px;margin:0 auto 16px;">
           <svg viewBox="0 0 200 240" style="width:100%;height:100%;">
-            <ellipse cx="100" cy="118" rx="76" ry="100" fill="rgba(201,133,106,0.08)" stroke="#C9856A" stroke-width="3"/>
+            <ellipse class="guide-outer" cx="100" cy="118" rx="84" ry="108" fill="none" stroke="#C9856A" stroke-width="2" opacity="0.5"/>
+            <ellipse class="guide-inner" cx="100" cy="118" rx="76" ry="100" fill="rgba(201,133,106,0.08)" stroke="#C9856A" stroke-width="6"/>
+            <path d="M22 66 L22 34 L54 34" fill="none" stroke="#C9856A" stroke-width="6" stroke-linecap="round"/>
+            <path d="M178 66 L178 34 L146 34" fill="none" stroke="#C9856A" stroke-width="6" stroke-linecap="round"/>
+            <path d="M22 174 L22 206 L54 206" fill="none" stroke="#C9856A" stroke-width="6" stroke-linecap="round"/>
+            <path d="M178 174 L178 206 L146 206" fill="none" stroke="#C9856A" stroke-width="6" stroke-linecap="round"/>
             <text x="100" y="128" text-anchor="middle" font-size="56" opacity="0.15">👤</text>
           </svg>
         </div>
@@ -530,16 +536,16 @@ function analyzeImage(img,realAge){
   const qBonus=getQuestionBonus();
   const stdPenalty=Math.min(1,stdDev/60),lcPenalty=Math.min(1,localContrast/45);
   const spotPenalty=Math.min(1,spotRatio*400),rbPenalty=Math.min(1,rbStd/35),darkPen=Math.min(0.6,darkPenalty);
-  const baseM=72-stdPenalty*18-darkPen*14,baseP=74-lcPenalty*20-stdPenalty*8;
-  const baseS=70-spotPenalty*18-rbPenalty*14-darkPen*10,baseF=73-lcPenalty*18-stdPenalty*12-darkPen*8;
-  const moisture=Math.round(clamp(baseM+seededRand(1)*6+timeBonus+qBonus*0.8,38,92));
-  const pores=Math.round(clamp(baseP+seededRand(2)*6+timeBonus*0.6+qBonus*0.5,38,90));
-  const spotsScore=Math.round(clamp(baseS+seededRand(3)*6+timeBonus*0.5+qBonus*0.6,35,90));
-  const firmness=Math.round(clamp(baseF+seededRand(4)*6+timeBonus*0.5+qBonus*0.5,38,90));
+  const baseM=84-stdPenalty*10-darkPen*8,baseP=86-lcPenalty*10-stdPenalty*5;
+  const baseS=82-spotPenalty*10-rbPenalty*8-darkPen*6,baseF=84-lcPenalty*10-stdPenalty*6-darkPen*5;
+  const moisture=Math.round(clamp(baseM+seededRand(1)*6+timeBonus+qBonus*0.8,58,97));
+  const pores=Math.round(clamp(baseP+seededRand(2)*6+timeBonus*0.6+qBonus*0.5,58,96));
+  const spotsScore=Math.round(clamp(baseS+seededRand(3)*6+timeBonus*0.5+qBonus*0.6,55,96));
+  const firmness=Math.round(clamp(baseF+seededRand(4)*6+timeBonus*0.5+qBonus*0.5,58,96));
   const qualityPenalty=(stdPenalty+lcPenalty+spotPenalty+rbPenalty+darkPen)/5;
-  let ageBias=Math.round(-2+qualityPenalty*8-qBonus*0.5+seededRand(5)*2-(timeBonus>0?1:0));
-  ageBias=clamp(ageBias,-5,8);
-  const skinAge=clamp(realAge+ageBias,Math.max(10,realAge-5),realAge+8);
+  let ageBias=Math.round(-4+qualityPenalty*7-qBonus*0.5+seededRand(5)*2-(timeBonus>0?1:0));
+  ageBias=clamp(ageBias,-6,6);
+  const skinAge=clamp(realAge+ageBias,Math.max(10,realAge-6),realAge+6);
   const diff=skinAge-realAge;
   const qLabel=qBonus>=4?'体調も良好で肌に有利な状態です。':qBonus<=-3?'睡眠・水分不足が肌に影響しています。':'';
   let tagline,comment;
