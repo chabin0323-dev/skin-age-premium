@@ -27,7 +27,10 @@
   .dob-sep { font-size:18px; color:var(--blush); font-family:'Cormorant Garamond',serif; }
   .upload-area { border:1px solid var(--blush); border-radius:20px; background:white; overflow:hidden; cursor:pointer; transition:border-color .3s,box-shadow .3s; min-height:200px; display:flex; align-items:center; justify-content:center; position:relative; }
   .upload-area:hover { border-color:var(--rose); box-shadow:0 0 0 4px rgba(201,133,106,.08); }
-  .upload-area input { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+  .upload-area input { display:none; }
+  .capture-btn { flex:1; padding:13px; border-radius:12px; font-size:13px; font-weight:600; cursor:pointer; font-family:'DM Sans',sans-serif; }
+  .capture-btn.primary { border:none; background:var(--rose); color:#fff; }
+  .capture-btn.secondary { border:1px solid var(--blush); background:#fff; color:var(--deep); }
   .upload-content { text-align:center; padding:36px 24px; pointer-events:none; }
   .upload-content strong { display:block; font-size:15px; font-weight:500; margin-bottom:6px; }
   .upload-content small { font-size:12px; color:var(--muted); }
@@ -227,8 +230,9 @@
         <button onclick="resetDob()" style="font-size:11px;color:var(--muted);background:none;border:none;cursor:pointer;text-decoration:underline;">変更する</button>
       </div>
     </div>
-    <div class="upload-area" id="uploadArea" style="min-height:320px;">
+    <div class="upload-area" id="uploadArea" style="min-height:320px;cursor:default;">
       <input type="file" id="fileInput" accept="image/*" />
+      <input type="file" id="fileInputCamera" accept="image/*" capture="user" />
       <div class="upload-content" style="padding:24px 16px;">
         <div style="position:relative;width:200px;height:240px;margin:0 auto 16px;">
           <svg viewBox="0 0 200 240" style="width:100%;height:100%;">
@@ -249,7 +253,10 @@
             ✅ 明るい場所で撮影
           </div>
         </div>
-        <small style="display:block;margin-top:8px;color:var(--rose);font-size:12px;font-weight:500;">👆 タップしてカメラを起動</small>
+        <div style="display:flex;gap:8px;margin-top:14px;">
+          <button type="button" id="btnCamera" class="capture-btn primary">📷 その場で撮影</button>
+          <button type="button" id="btnGallery" class="capture-btn secondary">🖼 アルバムから選ぶ</button>
+        </div>
         <div class="privacy-badge" style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:12px;background:rgba(45,138,94,0.12);border:1px solid rgba(45,138,94,0.4);border-radius:99px;padding:9px 14px;">
           <span style="font-size:15px;line-height:1;">🔒</span>
           <strong style="font-size:12.5px;color:#2d8a5e;">写真は外部に一切送信されません。スマホ内だけで解析されます</strong>
@@ -448,6 +455,13 @@
 </div>
 
 <canvas id="analyzeCanvas" style="display:none;"></canvas>
+<canvas id="androidCaptureCanvas" style="display:none;"></canvas>
+<div id="androidCameraModal" style="display:none;position:fixed;inset:0;background:#000;z-index:9999;">
+  <video id="androidCameraVideo" autoplay playsinline style="width:100%;height:100%;object-fit:cover;transform:scaleX(-1);"></video>
+  <div style="position:absolute;top:16px;left:0;right:0;text-align:center;color:#fff;font-size:12px;opacity:.85;">顔を画面中央に合わせてください</div>
+  <button id="androidCameraCancel" type="button" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:50%;width:38px;height:38px;font-size:16px;cursor:pointer;">✕</button>
+  <button id="androidCameraShutter" type="button" style="position:absolute;bottom:34px;left:50%;transform:translateX(-50%);width:68px;height:68px;border-radius:50%;background:#fff;border:5px solid rgba(255,255,255,.5);cursor:pointer;"></button>
+</div>
 <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
 
 <script>
@@ -494,17 +508,52 @@ function calcRealAge(){
 
 // 画像アップロード
 let selectedFile=null;
-const fileInput=document.getElementById('fileInput'),previewWrap=document.getElementById('previewWrap'),
+const fileInput=document.getElementById('fileInput'),fileInputCamera=document.getElementById('fileInputCamera'),previewWrap=document.getElementById('previewWrap'),
       previewImg=document.getElementById('previewImg'),uploadArea=document.getElementById('uploadArea'),
       analyzeBtn=document.getElementById('analyzeBtn');
-fileInput.addEventListener('change',(e)=>{
+function handleFileSelected(e){
   const file=e.target.files[0];if(!file)return;
   selectedFile=file;previewImg.src=URL.createObjectURL(file);
   uploadArea.style.display='none';previewWrap.style.display='block';
   analyzeBtn.disabled=false;
   document.getElementById('questionnaireCard').style.display='block';
   document.getElementById('resultWrap').style.display='none';
+}
+fileInput.addEventListener('change',handleFileSelected);
+fileInputCamera.addEventListener('change',handleFileSelected);
+const isAndroid=/Android/i.test(navigator.userAgent);
+let androidStream=null;
+function openAndroidCamera(){
+  navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false}).then(stream=>{
+    androidStream=stream;
+    document.getElementById('androidCameraVideo').srcObject=stream;
+    document.getElementById('androidCameraModal').style.display='block';
+  }).catch(()=>{
+    fileInputCamera.value='';fileInputCamera.click();
+  });
+}
+function closeAndroidCamera(){
+  if(androidStream){ androidStream.getTracks().forEach(t=>t.stop()); androidStream=null; }
+  document.getElementById('androidCameraModal').style.display='none';
+}
+document.getElementById('androidCameraCancel').addEventListener('click',closeAndroidCamera);
+document.getElementById('androidCameraShutter').addEventListener('click',()=>{
+  const video=document.getElementById('androidCameraVideo');
+  const canvas=document.getElementById('androidCaptureCanvas');
+  canvas.width=video.videoWidth||720; canvas.height=video.videoHeight||960;
+  canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);
+  canvas.toBlob(blob=>{
+    if(!blob)return;
+    const file=new File([blob],'capture.jpg',{type:'image/jpeg'});
+    closeAndroidCamera();
+    handleFileSelected({target:{files:[file]}});
+  },'image/jpeg',0.92);
 });
+document.getElementById('btnCamera').addEventListener('click',()=>{
+  if(isAndroid){ openAndroidCamera(); }
+  else { fileInputCamera.value=''; fileInputCamera.click(); } // iPhone等はこれまで通り
+});
+document.getElementById('btnGallery').addEventListener('click',()=>{fileInput.value='';fileInput.click();});
 document.getElementById('changeBtn').addEventListener('click',()=>{fileInput.value='';fileInput.click();});
 
 function selectQ(groupId,btn){
