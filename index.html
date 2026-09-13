@@ -585,7 +585,41 @@ function analyze(){
   let mi=0;const msgEl=document.getElementById('loadingText');
   const msgTimer=setInterval(()=>{mi=(mi+1)%msgs.length;msgEl.textContent=msgs[mi];},600);
   const img=new Image();
-  img.onload=()=>{setTimeout(()=>{clearInterval(msgTimer);showResult(analyzeImage(img,realAge));},3000);};
+  img.onload=()=>{
+    // ── 顔写真チェック ──
+    const checkCanvas=document.getElementById('analyzeCanvas');
+    checkCanvas.width=100; checkCanvas.height=100;
+    const checkCtx=checkCanvas.getContext('2d');
+    checkCtx.drawImage(img,0,0,100,100);
+    const checkData=checkCtx.getImageData(0,0,100,100).data;
+    let skinPixels=0, centerSkinPixels=0;
+    for(let i=0;i<checkData.length;i+=4){
+      const r=checkData[i],g=checkData[i+1],b=checkData[i+2];
+      const px=(i/4)%100, py=Math.floor(i/4/100);
+      const isSkin = r>95 && g>40 && b>20 && r>g && r>b && r-g>15 && Math.abs(r-g)>15 && r<250 && g<220 && b<200 && (r+g+b)/3>80;
+      if(isSkin){ skinPixels++; if(px>20&&px<80&&py>15&&py<85) centerSkinPixels++; }
+    }
+    const skinRatio=skinPixels/10000, centerRatio=centerSkinPixels/10000;
+    let edgeSum=0, edgeCount=0;
+    for(let y=16;y<84;y++){
+      for(let x=21;x<78;x++){
+        const i=(y*100+x)*4, iR=(y*100+x+1)*4, iD=((y+1)*100+x)*4;
+        const lum=(checkData[i]+checkData[i+1]+checkData[i+2])/3;
+        const lumR=(checkData[iR]+checkData[iR+1]+checkData[iR+2])/3;
+        const lumD=(checkData[iD]+checkData[iD+1]+checkData[iD+2])/3;
+        edgeSum+=Math.abs(lum-lumR)+Math.abs(lum-lumD); edgeCount+=2;
+      }
+    }
+    const avgEdge=edgeSum/edgeCount;
+    if(skinRatio<0.15 || centerRatio<0.10 || avgEdge<3.2){
+      clearInterval(msgTimer);
+      document.getElementById('loadingWrap').style.display='none';
+      document.getElementById('uploadSection').style.display='block';
+      alert('⚠️ 顔写真が検出されませんでした。\n\n✅ 正しい撮影方法：\n・顔が中央に写った自撮り写真\n・明るい場所での撮影\n・顔全体が写るように\n\nもう一度写真を選んでください。');
+      return;
+    }
+    setTimeout(()=>{clearInterval(msgTimer);showResult(analyzeImage(img,realAge));},3000);
+  };
   img.src=URL.createObjectURL(selectedFile);
 }
 
