@@ -592,14 +592,17 @@ function analyze(){
     const checkCtx=checkCanvas.getContext('2d');
     checkCtx.drawImage(img,0,0,100,100);
     const checkData=checkCtx.getImageData(0,0,100,100).data;
-    let skinPixels=0, centerSkinPixels=0;
+    let skinPixels=0, centerSkinPixels=0, skinSumX=0, skinSumY=0;
     for(let i=0;i<checkData.length;i+=4){
       const r=checkData[i],g=checkData[i+1],b=checkData[i+2];
       const px=(i/4)%100, py=Math.floor(i/4/100);
       const isSkin = r>95 && g>40 && b>20 && r>g && r>b && r-g>15 && Math.abs(r-g)>15 && r<250 && g<220 && b<200 && (r+g+b)/3>80;
-      if(isSkin){ skinPixels++; if(px>20&&px<80&&py>15&&py<85) centerSkinPixels++; }
+      if(isSkin){ skinPixels++; skinSumX+=px; skinSumY+=py; if(px>20&&px<80&&py>15&&py<85) centerSkinPixels++; }
     }
     const skinRatio=skinPixels/10000, centerRatio=centerSkinPixels/10000;
+    const centroidX = skinPixels>0 ? skinSumX/skinPixels : 50;
+    const centroidY = skinPixels>0 ? skinSumY/skinPixels : 50;
+    const offCenter = Math.abs(centroidX-50) > 14 || Math.abs(centroidY-50) > 18;
     let edgeSum=0, edgeCount=0;
     for(let y=16;y<84;y++){
       for(let x=21;x<78;x++){
@@ -611,7 +614,7 @@ function analyze(){
       }
     }
     const avgEdge=edgeSum/edgeCount;
-    if(skinRatio<0.15 || centerRatio<0.10 || avgEdge<3.2){
+    if(skinRatio<0.15 || centerRatio<0.18 || avgEdge<3.2 || offCenter){
       clearInterval(msgTimer);
       document.getElementById('loadingWrap').style.display='none';
       document.getElementById('uploadSection').style.display='block';
