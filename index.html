@@ -107,6 +107,7 @@
   .hero-frame .upload-content div[style*="background:var(--light)"] { background:rgba(255,255,255,.12) !important; }
   .hero-frame .upload-content ellipse.guide-inner { stroke:#F0C878 !important; fill:rgba(255,255,255,.12) !important; }
   .hero-frame .upload-content ellipse.guide-outer { stroke:#F0C878 !important; fill:none !important; }
+  .hero-frame .upload-content .guide-tap-label { fill:#F0C878 !important; }
   .hero-frame .upload-content path { stroke:#F0C878 !important; }
   .hero-frame .privacy-badge { background:rgba(255,255,255,.08) !important; border-color:rgba(240,200,120,.4) !important; }
   .hero-frame .privacy-badge strong { color:#F0C878 !important; }
@@ -230,13 +231,8 @@
         <button onclick="resetDob()" style="font-size:11px;color:var(--muted);background:none;border:none;cursor:pointer;text-decoration:underline;">変更する</button>
       </div>
     </div>
-    <div style="display:flex;gap:8px;margin-bottom:16px;">
-      <button type="button" id="btnCamera" class="capture-btn primary">📷 その場で撮影</button>
-      <button type="button" id="btnGallery" class="capture-btn secondary">🖼 アルバムから選ぶ</button>
-    </div>
-    <div class="upload-area" id="uploadArea" style="min-height:320px;cursor:default;">
+    <div class="upload-area" id="uploadArea" style="min-height:320px;cursor:pointer;">
       <input type="file" id="fileInput" accept="image/*" />
-      <input type="file" id="fileInputCamera" accept="image/*" capture="user" />
       <div class="upload-content" style="padding:24px 16px;">
         <div style="position:relative;width:200px;height:240px;margin:0 auto 16px;">
           <svg viewBox="0 0 200 240" style="width:100%;height:100%;">
@@ -247,6 +243,7 @@
             <path d="M22 174 L22 206 L54 206" fill="none" stroke="#C9856A" stroke-width="6" stroke-linecap="round"/>
             <path d="M178 174 L178 206 L146 206" fill="none" stroke="#C9856A" stroke-width="6" stroke-linecap="round"/>
             <text x="100" y="128" text-anchor="middle" font-size="56" opacity="0.15">👤</text>
+            <text class="guide-tap-label" x="100" y="185" text-anchor="middle" font-size="14" font-weight="600" fill="#C9856A">👆 ここをタップ</text>
           </svg>
         </div>
         <strong style="font-size:14px;color:var(--deep);">顔を画面中央に合わせて撮影</strong>
@@ -508,7 +505,7 @@ function calcRealAge(){
 
 // 画像アップロード
 let selectedFile=null;
-const fileInput=document.getElementById('fileInput'),fileInputCamera=document.getElementById('fileInputCamera'),previewWrap=document.getElementById('previewWrap'),
+const fileInput=document.getElementById('fileInput'),previewWrap=document.getElementById('previewWrap'),
       previewImg=document.getElementById('previewImg'),uploadArea=document.getElementById('uploadArea'),
       analyzeBtn=document.getElementById('analyzeBtn');
 function handleFileSelected(e){
@@ -520,7 +517,6 @@ function handleFileSelected(e){
   document.getElementById('resultWrap').style.display='none';
 }
 fileInput.addEventListener('change',handleFileSelected);
-fileInputCamera.addEventListener('change',handleFileSelected);
 const isAndroid=/Android/i.test(navigator.userAgent);
 let androidStream=null;
 function openAndroidCamera(){
@@ -529,7 +525,7 @@ function openAndroidCamera(){
     document.getElementById('androidCameraVideo').srcObject=stream;
     document.getElementById('androidCameraModal').style.display='block';
   }).catch(()=>{
-    fileInputCamera.value='';fileInputCamera.click();
+    fileInput.value='';fileInput.click();
   });
 }
 function closeAndroidCamera(){
@@ -549,18 +545,10 @@ document.getElementById('androidCameraShutter').addEventListener('click',()=>{
     handleFileSelected({target:{files:[file]}});
   },'image/jpeg',0.92);
 });
-document.getElementById('btnCamera').addEventListener('click',()=>{
+uploadArea.addEventListener('click',()=>{
   if(isAndroid){ openAndroidCamera(); }
-  else { fileInputCamera.value=''; fileInputCamera.click(); } // iPhone等はこれまで通り
+  else { fileInput.value=''; fileInput.click(); }
 });
-// iPhone等（Android以外）は、以前と同じく箱のどこを押してもカメラが起動するように戻す
-if(!isAndroid){
-  uploadArea.addEventListener('click',(e)=>{
-    if(e.target.closest('#btnGallery')||e.target.closest('#btnCamera'))return;
-    fileInputCamera.value='';fileInputCamera.click();
-  });
-}
-document.getElementById('btnGallery').addEventListener('click',()=>{fileInput.value='';fileInput.click();});
 document.getElementById('changeBtn').addEventListener('click',()=>{fileInput.value='';fileInput.click();});
 
 function selectQ(groupId,btn){
